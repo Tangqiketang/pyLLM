@@ -3,7 +3,7 @@ from transformers import pipeline
 import torch
 import gc
 # 用 Librosa 加载音频
-speech_file = "/mnt/c/MyDataBase/PythonWorkSpace/pyLLM/automatic-speech-recognition/20241023135746-CG周会-纯音频-1.m4a"
+speech_file = "./20241023135746-CG周会-纯音频-1.m4a"
 waveform, sample_rate = librosa.load(speech_file, sr=16000, mono=True)  # 转换为模型所需的格式
 
 # 更激进的流式处理设置
