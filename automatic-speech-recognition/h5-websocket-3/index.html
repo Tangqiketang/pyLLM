@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Streaming Whisper 实验版</title>
+</head>
+
+<body>
+
+<h2>实时会议语音转写（实验版）</h2>
+
+<button onclick="startRecording()">开始</button>
+<button onclick="pauseRecording()">暂停</button>
+
+<div style="margin-top:20px;
+            border:1px solid #ccc;
+            padding:10px;
+            height:300px;
+            overflow:auto;
+            font-size:18px;"
+     id="result">
+</div>
+
+<script>
+
+let socket = null;
+let audioContext = null;
+let processor = null;
+let input = null;
+let stream = null;
+
+let recording = false;
+let buffer = [];
+
+const CHUNK_DURATION = 2000; // 每2秒发送一次
+
+async function startRecording() {
+
+    if (recording) return;
+
+    if (!socket || socket.readyState !== 1) {
+        socket = new WebSocket("ws://localhost:8000/ws");
+
+        socket.onmessage = (event) => {
+            const div = document.getElementById("result");
+            div.innerHTML += event.data + " ";
+            div.scrollTop = div.scrollHeight;
+        };
+    }
+
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+    audioContext = new AudioContext({ sampleRate: 16000 });
+    input = audioContext.createMediaStreamSource(stream);
+
+    processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+    processor.onaudioprocess = (e) => {
+
+        if (!recording) return;
+
+        const channelData = e.inputBuffer.getChannelData(0);
+        buffer.push(new Float32Array(channelData));
+    };
+
+    input.connect(processor);
+    processor.connect(audioContext.destination);
+
+    recording = true;
+
+    setInterval(() => {
+
+        if (!recording || buffer.length === 0) return;
+
+        let length = buffer.reduce((acc, cur) => acc + cur.length, 0);
+        let merged = new Float32Array(length);
+
+        let offset = 0;
+        buffer.forEach(b => {
+            merged.set(b, offset);
+            offset += b.length;
+        });
+
+        buffer = [];
+
+        socket.send(merged.buffer);
+
+    }, CHUNK_DURATION);
+}
+
+function pauseRecording() {
+    recording = false;
+}
+
+</script>
+
+</body>
+</html>
